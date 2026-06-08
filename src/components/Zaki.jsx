@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useLocation } from "react-router-dom";
 
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const BASE_PROMPT = `أنت "زكي"، مساعد ذكي على منصة LoopEDX التعليمية السعودية.
