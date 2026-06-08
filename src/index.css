@@ -1,0 +1,378 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Cairo', Arial, sans-serif;
+  background: #F5F7FA;
+  color: #0F172A;
+  direction: rtl;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   Mobile:  < 640px
+   Tablet:  640px - 1024px
+   Desktop: > 1024px
+═══════════════════════════════════════════ */
+
+/* ─── NAVBAR ─── */
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none !important;
+  }
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+}
+
+/* ─── HOME PAGE ─── */
+@media (max-width: 1024px) {
+  /* Hero: stack columns */
+  .hero-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .hero-visual {
+    display: none !important;
+  }
+  /* Stats: 2 columns */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  /* Courses: 2 columns */
+  .courses-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  /* Features: 2 columns */
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  /* Testimonials: 1 column */
+  .testimonials-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* Exam Banner: stack */
+  .exam-banner {
+    grid-template-columns: 1fr !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .courses-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .features-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── COURSES PAGE ─── */
+@media (max-width: 1024px) {
+  .courses-list-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .courses-list-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .courses-filters {
+    flex-wrap: wrap !important;
+  }
+}
+
+/* ─── COURSE DETAIL ─── */
+@media (max-width: 900px) {
+  .course-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .course-detail-sidebar {
+    order: -1 !important;
+  }
+  .what-you-learn-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── INSTRUCTOR LAYOUT ─── */
+@media (max-width: 768px) {
+  .instructor-sidebar {
+    position: fixed !important;
+    z-index: 999 !important;
+    transform: translateX(100%) !important;
+    transition: transform 0.3s ease !important;
+  }
+  .instructor-sidebar.open {
+    transform: translateX(0) !important;
+  }
+  .instructor-main {
+    width: 100% !important;
+  }
+}
+
+/* ─── INSTRUCTOR DASHBOARD ─── */
+@media (max-width: 1024px) {
+  .instructor-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .instructor-content-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .instructor-actions-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .instructor-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .instructor-actions-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ─── INSTRUCTOR COURSES ─── */
+@media (max-width: 1024px) {
+  .instructor-courses-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .instructor-courses-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── COURSE EDITOR ─── */
+@media (max-width: 768px) {
+  .course-editor-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .pricing-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── INSTRUCTOR EARNINGS ─── */
+@media (max-width: 1024px) {
+  .earnings-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .earnings-chart-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .earnings-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ─── INSTRUCTOR STUDENTS ─── */
+@media (max-width: 768px) {
+  .students-table {
+    display: block !important;
+    overflow-x: auto !important;
+  }
+  .students-summary {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── LEARN COURSE ─── */
+@media (max-width: 768px) {
+  .learn-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    height: 100vh !important;
+    z-index: 999 !important;
+    transform: translateX(100%) !important;
+    transition: transform 0.3s ease !important;
+    width: 300px !important;
+    min-width: 300px !important;
+  }
+  .learn-sidebar.open {
+    transform: translateX(0) !important;
+  }
+  .learn-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 998;
+  }
+  .learn-overlay.open {
+    display: block !important;
+  }
+}
+
+/* ─── PAYMENT MODAL ─── */
+@media (max-width: 640px) {
+  .payment-modal {
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+}
+
+/* ─── FOOTER ─── */
+@media (max-width: 900px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .footer-brand {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .footer-bottom {
+    flex-direction: column !important;
+    text-align: center !important;
+  }
+}
+
+/* ─── GLOBAL UTILS ─── */
+@media (max-width: 640px) {
+  .hide-mobile {
+    display: none !important;
+  }
+  .full-mobile {
+    width: 100% !important;
+  }
+  h1 {
+    font-size: clamp(24px, 6vw, 40px) !important;
+  }
+  h2 {
+    font-size: clamp(20px, 5vw, 32px) !important;
+  }
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* ─── GLOBAL MOBILE FIX ─── */
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Fix all grids on mobile */
+@media (max-width: 768px) {
+  div[style*="grid-template-columns: repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  div[style*="grid-template-columns: repeat(4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  div[style*="grid-template-columns: 1fr 380px"] {
+    grid-template-columns: 1fr !important;
+  }
+  div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  div[style*="grid-template-columns: 2fr 1fr 1fr 1fr"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  div[style*="grid-template-columns: 1.5fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  div[style*="grid-template-columns: 1fr 2fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  div[style*="grid-template-columns: repeat(2"] {
+    grid-template-columns: 1fr !important;
+  }
+  div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Fix padding on mobile */
+@media (max-width: 768px) {
+  div[style*="padding: \"0 24px\""],
+  div[style*="padding: 0 24px"] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  section[style*="padding"] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+/* Fix instructor sidebar on mobile */
+@media (max-width: 768px) {
+  aside[style*="width: 260px"] {
+    position: fixed !important;
+    right: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    z-index: 999 !important;
+    transform: translateX(100%) !important;
+  }
+}
