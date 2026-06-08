@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { sendWelcomeEmail, sendVerificationEmail, notifyAdminsNewStudent, notifyAdminsNewInstructor } from '../../lib/brevo'
+import { notifyAdminsNewStudent, notifyAdminsNewInstructor } from '../../lib/brevo'
 
 function Register() {
   const navigate = useNavigate()
@@ -11,6 +11,7 @@ function Register() {
   const [role, setRole] = useState('student')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [logo, setLogo] = useState({ url: '', text: 'LoopEDX' })
   const [logoLoaded, setLogoLoaded] = useState(false)
 
@@ -55,8 +56,22 @@ function Register() {
       return
     }
 
-    // ✅ بعت إيميل ترحيب من Brevo
-    await sendWelcomeEmail({ email, name, role })
+    // ✅ بعت إيميل تأكيد عبر Edge Function
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        type: "confirmation",
+        to: email,
+        name: name,
+      }),
+    });
 
     // ✅ بعت إشعار للأدمن
     if (role === 'instructor') {
@@ -75,10 +90,8 @@ function Register() {
       })
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    if (role === 'instructor') navigate('/instructor/complete-profile')
-    else navigate('/student/dashboard')
+    setLoading(false)
+    setSuccess(true)
   }
 
   const inputStyle = {
@@ -86,6 +99,36 @@ function Register() {
     border: '1.5px solid #E2E8F0', borderRadius: '8px',
     fontSize: '14px', fontFamily: 'Cairo, Arial',
     outline: 'none', boxSizing: 'border-box',
+  }
+
+  if (success) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#F8FAFC',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Cairo, Arial', direction: 'rtl', padding: '20px',
+      }}>
+        <div style={{ width: '100%', maxWidth: '440px', textAlign: 'center' }}>
+          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '48px 32px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>✉️</div>
+            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A', marginBottom: '12px' }}>
+              تحقق من بريدك الإلكتروني!
+            </h2>
+            <p style={{ color: '#64748B', fontSize: '15px', lineHeight: 1.7, marginBottom: '28px' }}>
+              أرسلنا رابط تأكيد إلى <strong>{email}</strong> — اضغط عليه لتفعيل حسابك والبدء في التعلم.
+            </p>
+            <div style={{ background: '#EFF6FF', borderRadius: '10px', padding: '14px', marginBottom: '24px', border: '1px solid #BFDBFE' }}>
+              <p style={{ color: '#1E40AF', fontSize: '13px', margin: 0 }}>
+                💡 لو مش لاقي الإيميل، تفقد مجلد Spam أو جرب تسجل مجدداً
+              </p>
+            </div>
+            <Link to="/login" style={{ display: 'block', width: '100%', padding: '13px', background: 'linear-gradient(135deg, #1E40AF, #2563EB)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '700', textDecoration: 'none', boxSizing: 'border-box' }}>
+              الذهاب لتسجيل الدخول
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -96,7 +139,6 @@ function Register() {
     }}>
       <div style={{ width: '100%', maxWidth: '440px' }}>
 
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <Link to="/" style={{ textDecoration: 'none', visibility: logoLoaded ? 'visible' : 'hidden' }}>
             {logo.url ? (
