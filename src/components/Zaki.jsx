@@ -13,9 +13,10 @@ const BASE_PROMPT = `أنت "زكي"، مساعد ذكي على منصة LoopEDX
 - منصة سعودية لطلاب المرحلة الثانوية
 - متخصصة في:
   • القدرات الكمي
-  • القدرات اللفظي  
+  • القدرات اللفظي
   • التحصيلي — وله 4 فروع فقط: تحصيلي كيمياء، تحصيلي فيزياء، تحصيلي أحياء، تحصيلي رياضيات
   • مهم: دايماً اذكر اسم الفرع كامل "تحصيلي كيمياء" مش "كيمياء" بس
+
 أسلوبك:
 - تكلم بالعربية البسيطة أو العامية السعودية
 - كن ودوداً ومشجعاً
@@ -34,14 +35,12 @@ const ROLE_PROMPTS = {
 أنت تتكلم مع معلم. مهمتك:
 - ساعده يفهم إحصائيات دوراته وطلابه وإيراداته
 - ساعده يرفع دوراته خطوة بخطوة
-- نبهه لأي مشاكل في دوراته
-- اشرح له كيف يحسن محتواه`,
+- نبهه لأي مشاكل في دوراته`,
 
   admin: `
 أنت تتكلم مع أدمن المنصة. مهمتك:
 - أجب على أسئلته عن إحصائيات المنصة
-- ساعده في إدارة المستخدمين والدورات
-- أي معلومة يحتاجها عن المنصة جاوبه بيها`,
+- ساعده في إدارة المستخدمين والدورات`,
 };
 
 const PAGE_CONTEXTS = {
@@ -56,8 +55,8 @@ const PAGE_CONTEXTS = {
 
 const AUTO_MESSAGES = {
   "/instructor/courses/new": "لاحظت إنك بتضيف دورة جديدة 🎉 تحتاج مساعدة في أي خطوة؟",
-  "/courses": "أهلاً! أنا زكي 😊 أقدر أساعدك تختار الدورة المناسبة ليك. إيه اللي تدور عليه؟",
-  "/student/dashboard": "أهلاً بعودتك! 👋 عايز تذاكر اليوم ولا تشوف تقدمك؟",
+  "/courses": "أهلاً! أنا زكي 😊 أقدر أساعدك تختار الدورة المناسبة ليك.",
+  "/student/dashboard": "أهلاً بعودتك! 👋 عايز تذاكر اليوم؟",
 };
 
 export default function Zaki() {
@@ -68,6 +67,7 @@ export default function Zaki() {
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState("");
   const [platformData, setPlatformData] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -77,6 +77,12 @@ export default function Zaki() {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const autoShownRef = useRef(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => { fetchPlatformData(); }, [user]);
 
@@ -97,8 +103,8 @@ export default function Zaki() {
   }, [messages, open, minimized]);
 
   useEffect(() => {
-    if (open && !minimized) setTimeout(() => inputRef.current?.focus(), 100);
-  }, [open, minimized]);
+    if (open && !minimized && !isMobile) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [open, minimized, isMobile]);
 
   const fetchPlatformData = async () => {
     try {
@@ -118,12 +124,10 @@ export default function Zaki() {
           .eq("instructor_id", user.id);
         data.myCourses = myCourses || [];
         const { data: orders } = await supabase
-          .from("orders")
-          .select("amount")
+          .from("orders").select("amount")
           .in("course_id", (myCourses || []).map(c => c.id));
         data.totalEarnings = (orders || []).reduce((sum, o) => sum + (o.amount || 0), 0);
         data.totalStudents = (myCourses || []).reduce((sum, c) => sum + (c.enrollments_count || 0), 0);
-
       } else if (role === "admin") {
         const { count: usersCount } = await supabase.from("profiles").select("*", { count: "exact", head: true });
         const { count: coursesCount } = await supabase.from("courses").select("*", { count: "exact", head: true });
@@ -131,11 +135,9 @@ export default function Zaki() {
         data.usersCount = usersCount || 0;
         data.coursesCount = coursesCount || 0;
         data.totalRevenue = (orders || []).reduce((sum, o) => sum + (o.amount || 0), 0);
-
       } else if (role === "student" && user) {
         const { data: enrollments } = await supabase
-          .from("enrollments")
-          .select("courses(title, category)")
+          .from("enrollments").select("courses(title, category)")
           .eq("student_id", user.id);
         data.myEnrollments = (enrollments || []).map(e => e.courses);
       }
@@ -157,7 +159,7 @@ export default function Zaki() {
     if (platformData) {
       prompt += `\n\n📊 بيانات المنصة:`;
       if (platformData.courses?.length > 0) {
-        prompt += `\nالدورات المتاحة: ${platformData.courses.map(c => `${c.title} (${c.category} - ${c.price === 0 ? "مجاني" : c.price + " ريال"} - تقييم: ${c.avg_rating || "لا يوجد"} - طلاب: ${c.enrollments_count || 0})`).join(" | ")}`;
+        prompt += `\nالدورات المتاحة: ${platformData.courses.map(c => `${c.title} (${c.category} - ${c.price === 0 ? "مجاني" : c.price + " ريال"})`).join(" | ")}`;
       }
       if (role === "instructor") {
         if (platformData.myCourses?.length > 0) {
@@ -228,22 +230,31 @@ export default function Zaki() {
       { label: "كيف أرفع دورة؟ 🆕", msg: "ساعدني أرفع دورة جديدة" },
     ];
     if (role === "admin") return [
-      { label: "إحصائيات المنصة 📊", msg: "اعرض لي إحصائيات المنصة" },
+      { label: "إحصائيات 📊", msg: "اعرض لي إحصائيات المنصة" },
       { label: "الإيرادات 💰", msg: "كم إجمالي إيرادات المنصة؟" },
       { label: "المستخدمين 👥", msg: "كم عدد المستخدمين؟" },
     ];
     return [
       { label: "القدرات الكمي 🔢", msg: "اختبرني بسؤال من القدرات الكمي" },
       { label: "القدرات اللفظي 📖", msg: "اختبرني بسؤال من القدرات اللفظي" },
-      { label: "كيمياء 🧪", msg: "اختبرني بسؤال كيمياء تحصيلي" },
-      { label: "فيزياء ⚡", msg: "اختبرني بسؤال فيزياء تحصيلي" },
-      { label: "أحياء 🌿", msg: "اختبرني بسؤال أحياء تحصيلي" },
-      { label: "رياضيات 📐", msg: "اختبرني بسؤال رياضيات تحصيلي" },
+      { label: "تحصيلي كيمياء 🧪", msg: "اختبرني بسؤال تحصيلي كيمياء" },
+      { label: "تحصيلي فيزياء ⚡", msg: "اختبرني بسؤال تحصيلي فيزياء" },
+      { label: "تحصيلي أحياء 🌿", msg: "اختبرني بسؤال تحصيلي أحياء" },
+      { label: "تحصيلي رياضيات 📐", msg: "اختبرني بسؤال تحصيلي رياضيات" },
     ];
   };
 
+  // ── Styles حسب الحجم ──
+  const chatWidth = isMobile ? "100vw" : "390px";
+  const chatBottom = isMobile ? "0" : "28px";
+  const chatLeft = isMobile ? "0" : "28px";
+  const chatRight = isMobile ? "0" : "auto";
+  const chatBorderRadius = isMobile ? "20px 20px 0 0" : "20px";
+  const msgHeight = isMobile ? "calc(100vh - 220px)" : "380px";
+
   return (
     <>
+      {/* Floating Button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -272,14 +283,23 @@ export default function Zaki() {
         </button>
       )}
 
+      {/* Chat Window */}
       {open && (
         <div style={{
-          position: "fixed", bottom: 28, left: 28, zIndex: 9999,
-          width: 390, borderRadius: 20,
+          position: "fixed",
+          bottom: chatBottom,
+          left: chatLeft,
+          right: chatRight,
+          zIndex: 9999,
+          width: chatWidth,
+          borderRadius: chatBorderRadius,
           boxShadow: "0 24px 64px rgba(15,23,42,0.2)",
           fontFamily: "'Cairo', sans-serif",
-          overflow: "hidden", border: "1px solid #E2E8F0",
+          overflow: "hidden",
+          border: "1px solid #E2E8F0",
+          direction: "rtl",
         }}>
+          {/* Header */}
           <div style={{
             background: "linear-gradient(135deg, #1E40AF, #2563EB)",
             padding: "14px 16px",
@@ -296,9 +316,11 @@ export default function Zaki() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setMinimized(!minimized)} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-                <Minimize2 size={14} />
-              </button>
+              {!isMobile && (
+                <button onClick={() => setMinimized(!minimized)} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                  <Minimize2 size={14} />
+                </button>
+              )}
               <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 8, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
                 <X size={14} />
               </button>
@@ -307,13 +329,14 @@ export default function Zaki() {
 
           {!minimized && (
             <>
-              <div style={{ height: 380, overflowY: "auto", padding: 16, background: "#F8FAFC", display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Messages */}
+              <div style={{ height: msgHeight, overflowY: "auto", padding: 16, background: "#F8FAFC", display: "flex", flexDirection: "column", gap: 12 }}>
                 {messages.map((msg, i) => (
                   <div key={i} style={{ display: "flex", gap: 8, flexDirection: msg.role === "user" ? "row-reverse" : "row", alignItems: "flex-start" }}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, background: msg.role === "user" ? "linear-gradient(135deg,#1E40AF,#2563EB)" : "#fff", border: msg.role === "assistant" ? "1px solid #E2E8F0" : "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: msg.role === "assistant" ? 16 : 12, color: msg.role === "user" ? "#fff" : undefined }}>
                       {msg.role === "assistant" ? "🤖" : <User size={14} />}
                     </div>
-                    <div style={{ maxWidth: "75%", background: msg.role === "user" ? "linear-gradient(135deg,#1E40AF,#2563EB)" : "#fff", color: msg.role === "user" ? "#fff" : "#0F172A", padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", fontSize: 13, lineHeight: 1.7, border: msg.role === "assistant" ? "1px solid #E2E8F0" : "none", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", whiteSpace: "pre-wrap", direction: "rtl" }}>
+                    <div style={{ maxWidth: "80%", background: msg.role === "user" ? "linear-gradient(135deg,#1E40AF,#2563EB)" : "#fff", color: msg.role === "user" ? "#fff" : "#0F172A", padding: "10px 14px", borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", fontSize: 13, lineHeight: 1.7, border: msg.role === "assistant" ? "1px solid #E2E8F0" : "none", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", whiteSpace: "pre-wrap", direction: "rtl" }}>
                       {msg.content}
                     </div>
                   </div>
@@ -329,11 +352,12 @@ export default function Zaki() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Quick Actions */}
               {messages.length <= 1 && (
                 <div style={{ padding: "10px 12px", background: "#F8FAFC", borderTop: "1px solid #E2E8F0", display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {getQuickActions().map((a, i) => (
                     <button key={i} onClick={() => sendMessage(a.msg)}
-                      style={{ padding: "5px 10px", borderRadius: 20, border: "1px solid #2563EB", background: "#EFF6FF", color: "#1E40AF", fontFamily: "'Cairo', sans-serif", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
+                      style={{ padding: "6px 12px", borderRadius: 20, border: "1px solid #2563EB", background: "#EFF6FF", color: "#1E40AF", fontFamily: "'Cairo', sans-serif", fontSize: isMobile ? 12 : 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
                       onMouseEnter={e => { e.currentTarget.style.background = "#2563EB"; e.currentTarget.style.color = "#fff"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = "#EFF6FF"; e.currentTarget.style.color = "#1E40AF"; }}
                     >{a.label}</button>
@@ -341,6 +365,7 @@ export default function Zaki() {
                 </div>
               )}
 
+              {/* Input */}
               <div style={{ padding: "12px 14px", background: "#fff", borderTop: "1px solid #E2E8F0", display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <textarea
                   ref={inputRef}
@@ -349,15 +374,15 @@ export default function Zaki() {
                   onKeyDown={handleKeyDown}
                   placeholder="اكتب سؤالك هنا..."
                   rows={1}
-                  style={{ flex: 1, padding: "10px 12px", borderRadius: 12, border: "1.5px solid #E2E8F0", fontFamily: "'Cairo', sans-serif", fontSize: 13, outline: "none", direction: "rtl", resize: "none", maxHeight: 100, overflow: "auto", lineHeight: 1.5, boxSizing: "border-box" }}
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: 12, border: "1.5px solid #E2E8F0", fontFamily: "'Cairo', sans-serif", fontSize: 14, outline: "none", direction: "rtl", resize: "none", maxHeight: 100, overflow: "auto", lineHeight: 1.5, boxSizing: "border-box" }}
                   onFocus={e => e.target.style.borderColor = "#2563EB"}
                   onBlur={e => e.target.style.borderColor = "#E2E8F0"}
                 />
                 <button
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
-                  style={{ width: 40, height: 40, borderRadius: 12, border: "none", background: loading || !input.trim() ? "#E2E8F0" : "linear-gradient(135deg,#1E40AF,#2563EB)", color: loading || !input.trim() ? "#94A3B8" : "#fff", cursor: loading || !input.trim() ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
-                  <Send size={16} />
+                  style={{ width: 44, height: 44, borderRadius: 12, border: "none", background: loading || !input.trim() ? "#E2E8F0" : "linear-gradient(135deg,#1E40AF,#2563EB)", color: loading || !input.trim() ? "#94A3B8" : "#fff", cursor: loading || !input.trim() ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+                  <Send size={18} />
                 </button>
               </div>
             </>
