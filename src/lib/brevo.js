@@ -1,26 +1,20 @@
-const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const APP_URL = import.meta.env.VITE_APP_URL || "https://loop-edx-mu5f.vercel.app";
-const SENDER = "onboarding@resend.dev";
-const SENDER_NAME = "LoopEDX";
 
 async function sendEmail({ to, subject, htmlContent }) {
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      body: JSON.stringify({
-        from: `${SENDER_NAME} <${SENDER}>`,
-        to,
-        subject,
-        html: htmlContent,
-      }),
+      body: JSON.stringify({ to: Array.isArray(to) ? to : [to], subject, html: htmlContent }),
     });
-    if (!res.ok) { const err = await res.json(); console.error("Resend error:", err); return false; }
+    if (!res.ok) { const err = await res.json(); console.error("Email error:", err); return false; }
     return true;
-  } catch (err) { console.error("Resend send error:", err); return false; }
+  } catch (err) { console.error("Email send error:", err); return false; }
 }
 
 async function getAdminEmails(supabase) {
