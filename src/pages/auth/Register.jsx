@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { sendWelcomeEmail, notifyAdminsNewStudent, notifyAdminsNewInstructor } from '../../lib/brevo'
+import { sendWelcomeEmail, sendVerificationEmail, notifyAdminsNewStudent, notifyAdminsNewInstructor } from '../../lib/brevo'
 
 function Register() {
   const navigate = useNavigate()
@@ -55,7 +55,7 @@ function Register() {
       return
     }
 
-    // ✅ بعت إيميل ترحيب للمستخدم الجديد
+    // ✅ بعت إيميل ترحيب من Brevo
     await sendWelcomeEmail({ email, name, role })
 
     // ✅ بعت إشعار للأدمن
@@ -75,7 +75,7 @@ function Register() {
       })
     }
 
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     if (role === 'instructor') navigate('/instructor/complete-profile')
     else navigate('/student/dashboard')
