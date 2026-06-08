@@ -1,392 +1,171 @@
-// ─── Brevo Email Service ───────────────────────────────
-const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
-const SENDER_EMAIL  = import.meta.env.VITE_BREVO_SENDER_EMAIL;
-const SENDER_NAME   = import.meta.env.VITE_BREVO_SENDER_NAME || "LoopEDX";
-const API_URL       = "https://api.brevo.com/v3/smtp/email";
-const APP_URL       = import.meta.env.VITE_APP_URL || "https://loop-edx-mu5f.vercel.app";
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { sendWelcomeEmail, sendVerificationEmail, notifyAdminsNewStudent, notifyAdminsNewInstructor } from '../../lib/brevo'
 
-// ─── دالة الإرسال الأساسية ───
-async function sendEmail({ to, subject, htmlContent }) {
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": BREVO_API_KEY },
-      body: JSON.stringify({
-        sender: { name: SENDER_NAME, email: SENDER_EMAIL },
-        to, subject, htmlContent,
-      }),
-    });
-    if (!res.ok) { const err = await res.json(); console.error("Brevo error:", err); return false; }
-    return true;
-  } catch (err) { console.error("Brevo send error:", err); return false; }
-}
+function Register() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState('student')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [logo, setLogo] = useState({ url: '', text: 'LoopEDX' })
+  const [logoLoaded, setLogoLoaded] = useState(false)
 
-// ─── جيب الأدمن من Supabase ───
-async function getAdminEmails(supabase) {
-  const { data } = await supabase.from("admins").select("email, name");
-  return data || [];
-}
+  useEffect(() => { fetchLogo() }, [])
 
-// ─── Base HTML Template ───
-function baseTemplate({ headerBg, badge, badgeColor, icon, title, subtitle, bodyContent }) {
-  return `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head><meta charset="UTF-8"><style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #F8FAFC; margin: 0; padding: 0; direction: rtl; }
-  .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-  .header { background: ${headerBg}; padding: 36px 32px; text-align: center; }
-  .header h1 { color: #fff; margin: 0; font-size: 24px; font-weight: 800; }
-  .badge { display: inline-block; background: ${badgeColor || "#fff"}; color: ${badgeColor ? "#fff" : "#1E40AF"}; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: 800; margin-top: 10px; }
-  .body { padding: 36px 32px; }
-  .info-card { background: #F8FAFC; border-radius: 12px; padding: 20px; border: 1px solid #E2E8F0; margin: 20px 0; }
-  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F1F5F9; font-size: 14px; }
-  .info-row:last-child { border-bottom: none; }
-  .label { color: #64748B; }
-  .value { color: #0F172A; font-weight: 700; }
-  .btn { display: inline-block; background: linear-gradient(135deg, #1E40AF, #2563EB); color: #fff !important; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 700; }
-  .footer { background: #F8FAFC; padding: 24px 32px; text-align: center; color: #94A3B8; font-size: 13px; border-top: 1px solid #E2E8F0; }
-</style></head>
-<body>
-<div class="container">
-  <div class="header">
-    <div style="font-size:48px; margin-bottom:12px;">${icon}</div>
-    <h1>${title}</h1>
-    ${badge ? `<div class="badge">${badge}</div>` : ""}
-    ${subtitle ? `<p style="color:rgba(255,255,255,0.85); margin:8px 0 0; font-size:14px;">${subtitle}</p>` : ""}
-  </div>
-  <div class="body">${bodyContent}</div>
-  <div class="footer">© ${new Date().getFullYear()} LoopEDX — جميع الحقوق محفوظة</div>
-</div>
-</body></html>`;
-}
-
-// ══════════════════════════════════════════════════════
-// 1. تأكيد البريد عند التسجيل
-// ══════════════════════════════════════════════════════
-export async function sendVerificationEmail({ email, name, confirmUrl }) {
-  return sendEmail({
-    to: [{ email, name }],
-    subject: "أكّد بريدك الإلكتروني — LoopEDX",
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
-      icon: "✉️",
-      title: "تأكيد البريد الإلكتروني",
-      subtitle: "خطوة واحدة تفصلك عن عالم المعرفة",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 12px;">أهلاً ${name}! 👋</h2>
-        <p style="color:#64748B; font-size:15px; line-height:1.7; margin:0 0 28px;">شكراً لتسجيلك في LoopEDX. اضغط على الزر أدناه لتأكيد بريدك الإلكتروني والبدء في رحلتك التعليمية.</p>
-        <div style="text-align:center; margin:32px 0;">
-          <a href="${confirmUrl}" class="btn">تأكيد البريد الإلكتروني ✉️</a>
-        </div>
-        <p style="font-size:13px; color:#94A3B8; text-align:center;">الرابط صالح لمدة 24 ساعة. إذا لم تقم بإنشاء هذا الحساب، تجاهل هذا الإيميل.</p>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 2. ترحيب بالمستخدم الجديد (طالب أو معلم)
-// ══════════════════════════════════════════════════════
-export async function sendWelcomeEmail({ email, name, role }) {
-  const isInstructor = role === "instructor";
-  return sendEmail({
-    to: [{ email, name }],
-    subject: `أهلاً بك في LoopEDX يا ${name}! 🎉`,
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
-      icon: isInstructor ? "👨‍🏫" : "🎒",
-      title: `أهلاً بك في LoopEDX!`,
-      subtitle: isInstructor ? "منصتك لمشاركة معرفتك مع الطلاب" : "ابدأ رحلتك التعليمية اليوم",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 12px;">مرحباً ${name}! 🎉</h2>
-        <p style="color:#64748B; font-size:15px; line-height:1.7; margin:0 0 20px;">
-          ${isInstructor
-            ? "يسعدنا انضمامك كمعلم في LoopEDX! يمكنك الآن إنشاء دوراتك ومشاركة معرفتك مع آلاف الطلاب."
-            : "يسعدنا انضمامك إلى مجتمع LoopEDX! استعد لرحلة تعليمية مميزة مع أفضل المعلمين."
-          }
-        </p>
-        <div class="info-card">
-          ${isInstructor ? `
-          <div class="info-row"><span class="label">✅</span><span class="value">أنشئ أول دورة لك</span></div>
-          <div class="info-row"><span class="label">✅</span><span class="value">أضف محتواك التعليمي</span></div>
-          <div class="info-row"><span class="label">✅</span><span class="value">تواصل مع طلابك</span></div>
-          ` : `
-          <div class="info-row"><span class="label">✅</span><span class="value">استكشف الدورات المتاحة</span></div>
-          <div class="info-row"><span class="label">✅</span><span class="value">سجل في دورتك الأولى</span></div>
-          <div class="info-row"><span class="label">✅</span><span class="value">ابدأ التعلم مع زكي المساعد الذكي</span></div>
-          `}
-        </div>
-        <div style="text-align:center; margin-top:28px;">
-          <a href="${APP_URL}/${isInstructor ? "instructor/dashboard" : "courses"}" class="btn">
-            ${isInstructor ? "اذهب للوحة المعلم 🚀" : "استكشف الدورات 🚀"}
-          </a>
-        </div>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 3. إشعار الأدمن — طالب جديد
-// ══════════════════════════════════════════════════════
-export async function notifyAdminsNewStudent({ supabase, studentName, studentEmail, registeredAt }) {
-  const admins = await getAdminEmails(supabase);
-  if (!admins.length) return;
-  const html = baseTemplate({
-    headerBg: "linear-gradient(135deg, #0F172A, #1E3A8A)",
-    icon: "👤",
-    title: "LoopEDX — إشعار إداري",
-    badge: "طالب جديد",
-    badgeColor: "#10B981",
-    bodyContent: `
-      <h2 style="color:#0F172A; margin:0 0 8px;">انضم طالب جديد للمنصة 🎉</h2>
-      <p style="color:#64748B; font-size:15px; margin:0 0 20px;">تم تسجيل حساب طالب جديد على LoopEDX</p>
-      <div class="info-card">
-        <div class="info-row"><span class="label">الاسم</span><span class="value">${studentName}</span></div>
-        <div class="info-row"><span class="label">البريد</span><span class="value">${studentEmail}</span></div>
-        <div class="info-row"><span class="label">تاريخ التسجيل</span><span class="value">${new Date(registeredAt).toLocaleString("ar-SA")}</span></div>
-      </div>
-      <div style="text-align:center; margin-top:24px;">
-        <a href="${APP_URL}/admin/users" class="btn">عرض في لوحة الإدارة</a>
-      </div>`,
-  });
-  for (const admin of admins) {
-    await sendEmail({ to: [{ email: admin.email, name: admin.name }], subject: `طالب جديد: ${studentName} — LoopEDX`, htmlContent: html });
+  const fetchLogo = async () => {
+    try {
+      const { data: headerData } = await supabase
+        .from('header_settings')
+        .select('logo_url, logo_text')
+        .limit(1)
+        .single()
+      const { data: siteLogoData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'site_logo')
+        .single()
+      setLogo({
+        url: headerData?.logo_url || siteLogoData?.value || '',
+        text: headerData?.logo_text || 'LoopEDX',
+      })
+    } catch {
+    } finally {
+      setLogoLoaded(true)
+    }
   }
-}
 
-// ══════════════════════════════════════════════════════
-// 4. إشعار الأدمن — معلم جديد يحتاج موافقة
-// ══════════════════════════════════════════════════════
-export async function notifyAdminsNewInstructor({ supabase, instructorName, instructorEmail, registeredAt }) {
-  const admins = await getAdminEmails(supabase);
-  if (!admins.length) return;
-  const html = baseTemplate({
-    headerBg: "linear-gradient(135deg, #0F172A, #1E3A8A)",
-    icon: "👨‍🏫",
-    title: "LoopEDX — إشعار إداري",
-    badge: "معلم جديد — يحتاج موافقة",
-    badgeColor: "#8B5CF6",
-    bodyContent: `
-      <h2 style="color:#0F172A; margin:0 0 8px;">طلب انضمام معلم جديد 👨‍🏫</h2>
-      <p style="color:#64748B; font-size:15px; margin:0 0 20px;">تم تسجيل حساب معلم جديد ويحتاج مراجعة وموافقة</p>
-      <div class="info-card">
-        <div class="info-row"><span class="label">الاسم</span><span class="value">${instructorName}</span></div>
-        <div class="info-row"><span class="label">البريد</span><span class="value">${instructorEmail}</span></div>
-        <div class="info-row"><span class="label">تاريخ التسجيل</span><span class="value">${new Date(registeredAt).toLocaleString("ar-SA")}</span></div>
-      </div>
-      <div style="text-align:center; margin-top:24px;">
-        <a href="${APP_URL}/admin/users" class="btn">مراجعة الطلب في لوحة الإدارة</a>
-      </div>`,
-  });
-  for (const admin of admins) {
-    await sendEmail({ to: [{ email: admin.email, name: admin.name }], subject: `معلم جديد يحتاج موافقة: ${instructorName} — LoopEDX`, htmlContent: html });
+  async function handleRegister(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, role } }
+    })
+
+    if (signUpError) {
+      setError(signUpError.message)
+      setLoading(false)
+      return
+    }
+
+    // ✅ بعت إيميل ترحيب من Brevo
+    await sendWelcomeEmail({ email, name, role })
+
+    // ✅ بعت إشعار للأدمن
+    if (role === 'instructor') {
+      await notifyAdminsNewInstructor({
+        supabase,
+        instructorName: name,
+        instructorEmail: email,
+        registeredAt: new Date().toISOString(),
+      })
+    } else {
+      await notifyAdminsNewStudent({
+        supabase,
+        studentName: name,
+        studentEmail: email,
+        registeredAt: new Date().toISOString(),
+      })
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    if (role === 'instructor') navigate('/instructor/complete-profile')
+    else navigate('/student/dashboard')
   }
-}
 
-// ══════════════════════════════════════════════════════
-// 5. موافقة الأدمن على المعلم — إشعار للمعلم
-// ══════════════════════════════════════════════════════
-export async function sendInstructorApproval({ email, name }) {
-  return sendEmail({
-    to: [{ email, name }],
-    subject: "🎉 تمت الموافقة على حسابك كمعلم — LoopEDX",
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #064E3B, #10B981)",
-      icon: "✅",
-      title: "تمت الموافقة على حسابك!",
-      subtitle: "أنت الآن معلم معتمد على LoopEDX",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 12px;">مبروك يا ${name}! 🎉</h2>
-        <p style="color:#64748B; font-size:15px; line-height:1.7; margin:0 0 20px;">
-          تمت مراجعة حسابك والموافقة عليه. يمكنك الآن البدء في إنشاء دوراتك ومشاركة معرفتك مع الطلاب.
-        </p>
-        <div class="info-card">
-          <div class="info-row"><span class="label">✅</span><span class="value">أنشئ دورتك الأولى</span></div>
-          <div class="info-row"><span class="label">✅</span><span class="value">أضف المحتوى والفيديوهات</span></div>
-          <div class="info-row"><span class="label">✅</span><span class="value">ارسل الدورة للمراجعة</span></div>
-        </div>
-        <div style="text-align:center; margin-top:28px;">
-          <a href="${APP_URL}/instructor/dashboard" class="btn">ابدأ الآن 🚀</a>
-        </div>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 6. تأكيد الشراء للطالب
-// ══════════════════════════════════════════════════════
-export async function sendPurchaseConfirmation({ studentEmail, studentName, courseName, courseSlug, amount, paymentMethod, orderId }) {
-  return sendEmail({
-    to: [{ email: studentEmail, name: studentName }],
-    subject: `تم الشراء بنجاح: ${courseName} — LoopEDX`,
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
-      icon: "✅",
-      title: "تم الدفع بنجاح!",
-      subtitle: "يمكنك البدء بالتعلم الآن",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 8px;">أهلاً ${studentName}! 🎉</h2>
-        <p style="color:#64748B; font-size:15px; margin:0 0 16px;">تم تأكيد اشتراكك في الدورة بنجاح.</p>
-        <div style="font-size:32px; font-weight:900; color:#10B981; text-align:center; margin:16px 0;">${amount} ريال سعودي</div>
-        <div class="info-card">
-          <div class="info-row"><span class="label">الدورة</span><span class="value">${courseName}</span></div>
-          <div class="info-row"><span class="label">رقم الطلب</span><span class="value">${orderId}</span></div>
-          <div class="info-row"><span class="label">طريقة الدفع</span><span class="value">${paymentMethod}</span></div>
-          <div class="info-row"><span class="label">تاريخ الشراء</span><span class="value">${new Date().toLocaleString("ar-SA")}</span></div>
-        </div>
-        <div style="text-align:center; margin-top:28px;">
-          <a href="${APP_URL}/student/courses/${courseSlug}/learn" class="btn">ابدأ التعلم الآن 🚀</a>
-        </div>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 7. إشعار المعلم بطالب جديد في دورته
-// ══════════════════════════════════════════════════════
-export async function notifyInstructorNewStudent({ instructorEmail, instructorName, studentName, courseName, enrolledAt }) {
-  return sendEmail({
-    to: [{ email: instructorEmail, name: instructorName }],
-    subject: `طالب جديد في دورتك: ${courseName} — LoopEDX`,
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
-      icon: "🎒",
-      title: "طالب جديد انضم لدورتك!",
-      badge: "تسجيل جديد",
-      badgeColor: "#10B981",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 8px;">مبروك يا ${instructorName}! 🎉</h2>
-        <p style="color:#64748B; font-size:15px; margin:0 0 20px;">انضم طالب جديد لدورتك على LoopEDX</p>
-        <div class="info-card">
-          <div class="info-row"><span class="label">اسم الطالب</span><span class="value">${studentName}</span></div>
-          <div class="info-row"><span class="label">الدورة</span><span class="value">${courseName}</span></div>
-          <div class="info-row"><span class="label">تاريخ التسجيل</span><span class="value">${new Date(enrolledAt).toLocaleString("ar-SA")}</span></div>
-        </div>
-        <div style="text-align:center; margin-top:24px;">
-          <a href="${APP_URL}/instructor/students" class="btn">عرض الطلاب</a>
-        </div>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 8. إشعار الأدمن — عملية دفع جديدة
-// ══════════════════════════════════════════════════════
-export async function notifyAdminsNewPayment({ supabase, studentName, studentEmail, courseName, amount, paymentMethod, orderId }) {
-  const admins = await getAdminEmails(supabase);
-  if (!admins.length) return;
-  const html = baseTemplate({
-    headerBg: "linear-gradient(135deg, #064E3B, #10B981)",
-    icon: "💰",
-    title: "دفعة جديدة!",
-    badge: "عملية ناجحة",
-    badgeColor: "#1E40AF",
-    bodyContent: `
-      <div style="font-size:36px; font-weight:900; color:#10B981; text-align:center; margin:16px 0;">${amount} ريال</div>
-      <div class="info-card">
-        <div class="info-row"><span class="label">الطالب</span><span class="value">${studentName}</span></div>
-        <div class="info-row"><span class="label">البريد</span><span class="value">${studentEmail}</span></div>
-        <div class="info-row"><span class="label">الدورة</span><span class="value">${courseName}</span></div>
-        <div class="info-row"><span class="label">طريقة الدفع</span><span class="value">${paymentMethod}</span></div>
-        <div class="info-row"><span class="label">رقم الطلب</span><span class="value">${orderId}</span></div>
-        <div class="info-row"><span class="label">التاريخ</span><span class="value">${new Date().toLocaleString("ar-SA")}</span></div>
-      </div>
-      <div style="text-align:center; margin-top:24px;">
-        <a href="${APP_URL}/admin/transactions" class="btn">عرض المعاملات</a>
-      </div>`,
-  });
-  for (const admin of admins) {
-    await sendEmail({ to: [{ email: admin.email, name: admin.name }], subject: `💰 دفعة جديدة: ${amount} ريال — ${studentName}`, htmlContent: html });
+  const inputStyle = {
+    width: '100%', padding: '11px 14px',
+    border: '1.5px solid #E2E8F0', borderRadius: '8px',
+    fontSize: '14px', fontFamily: 'Cairo, Arial',
+    outline: 'none', boxSizing: 'border-box',
   }
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#F8FAFC',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'Cairo, Arial', direction: 'rtl', padding: '20px',
+    }}>
+      <div style={{ width: '100%', maxWidth: '440px' }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <Link to="/" style={{ textDecoration: 'none', visibility: logoLoaded ? 'visible' : 'hidden' }}>
+            {logo.url ? (
+              <img src={logo.url} alt={logo.text} style={{ height: 56, objectFit: 'contain', margin: '0 auto 12px', display: 'block' }} />
+            ) : (
+              <>
+                <div style={{ width: '52px', height: '52px', background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', margin: '0 auto 12px' }}>🎓</div>
+                <div style={{ fontSize: '22px', fontWeight: '900', color: '#0F172A' }}>
+                  {logo.text.slice(0, -3)}<span style={{ color: '#2563EB' }}>{logo.text.slice(-3)}</span>
+                </div>
+              </>
+            )}
+          </Link>
+          <p style={{ fontSize: '14px', color: '#64748B', marginTop: '8px' }}>أنشئ حسابك وابدأ رحلتك التعليمية</p>
+        </div>
+
+        <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '32px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A', marginBottom: '24px' }}>إنشاء حساب جديد</h2>
+
+          {error && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '12px 16px', color: '#DC2626', fontSize: '13px', marginBottom: '20px' }}>{error}</div>
+          )}
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>أنا...</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {[
+                { value: 'student', emoji: '🎒', label: 'طالب', desc: 'أريد التعلم' },
+                { value: 'instructor', emoji: '👨‍🏫', label: 'معلم', desc: 'أريد التدريس' },
+              ].map(r => (
+                <div key={r.value} onClick={() => setRole(r.value)} style={{ padding: '12px', borderRadius: '10px', cursor: 'pointer', border: `2px solid ${role === r.value ? '#2563EB' : '#E2E8F0'}`, background: role === r.value ? '#EFF6FF' : 'white', textAlign: 'center', transition: 'all 0.2s' }}>
+                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>{r.emoji}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: role === r.value ? '#1E40AF' : '#374151' }}>{r.label}</div>
+                  <div style={{ fontSize: '11px', color: '#94A3B8' }}>{r.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleRegister}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>الاسم الكامل</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="محمد أحمد" required style={inputStyle} onFocus={e => e.target.style.borderColor = '#2563EB'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>البريد الإلكتروني</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="example@email.com" required style={{ ...inputStyle, direction: 'ltr', textAlign: 'left' }} onFocus={e => e.target.style.borderColor = '#2563EB'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>كلمة المرور</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} style={{ ...inputStyle, direction: 'ltr', textAlign: 'left' }} onFocus={e => e.target.style.borderColor = '#2563EB'} onBlur={e => e.target.style.borderColor = '#E2E8F0'} />
+              <p style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>على الأقل 6 أحرف</p>
+            </div>
+
+            <button type="submit" disabled={loading} style={{ width: '100%', padding: '13px', background: loading ? '#93C5FD' : 'linear-gradient(135deg, #1E40AF, #2563EB)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '700', fontFamily: 'Cairo, Arial', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 15px rgba(30,64,175,0.3)' }}>
+              {loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
+            </button>
+          </form>
+
+          <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#64748B' }}>
+            لديك حساب بالفعل؟{' '}
+            <Link to="/login" style={{ color: '#2563EB', fontWeight: '700', textDecoration: 'none' }}>تسجيل الدخول</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
-// ══════════════════════════════════════════════════════
-// 9. تذكير بموعد حصة خصوصية — للطالب
-// ══════════════════════════════════════════════════════
-export async function sendSessionReminderStudent({ studentEmail, studentName, instructorName, sessionTitle, sessionDate, sessionTime, sessionLink }) {
-  return sendEmail({
-    to: [{ email: studentEmail, name: studentName }],
-    subject: `تذكير: حصتك مع ${instructorName} غداً — LoopEDX`,
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #7C3AED, #8B5CF6)",
-      icon: "📅",
-      title: "تذكير بموعد حصتك",
-      subtitle: "حصتك الخصوصية غداً",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 8px;">أهلاً ${studentName}! 👋</h2>
-        <p style="color:#64748B; font-size:15px; margin:0 0 20px;">هذا تذكير بموعد حصتك الخصوصية القادمة</p>
-        <div class="info-card">
-          <div class="info-row"><span class="label">الحصة</span><span class="value">${sessionTitle}</span></div>
-          <div class="info-row"><span class="label">المعلم</span><span class="value">${instructorName}</span></div>
-          <div class="info-row"><span class="label">التاريخ</span><span class="value">${sessionDate}</span></div>
-          <div class="info-row"><span class="label">الوقت</span><span class="value">${sessionTime}</span></div>
-        </div>
-        ${sessionLink ? `
-        <div style="text-align:center; margin-top:24px;">
-          <a href="${sessionLink}" class="btn">انضم للحصة 📹</a>
-        </div>` : ""}
-        <p style="color:#94A3B8; font-size:13px; text-align:center; margin-top:16px;">تأكد من جهوزيتك قبل الموعد بـ 10 دقائق</p>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 10. تذكير بموعد حصة خصوصية — للمعلم
-// ══════════════════════════════════════════════════════
-export async function sendSessionReminderInstructor({ instructorEmail, instructorName, studentName, sessionTitle, sessionDate, sessionTime }) {
-  return sendEmail({
-    to: [{ email: instructorEmail, name: instructorName }],
-    subject: `تذكير: حصتك مع ${studentName} غداً — LoopEDX`,
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #7C3AED, #8B5CF6)",
-      icon: "📅",
-      title: "تذكير بموعد حصتك",
-      subtitle: "حصتك الخصوصية غداً",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 8px;">أهلاً ${instructorName}! 👋</h2>
-        <p style="color:#64748B; font-size:15px; margin:0 0 20px;">تذكير بموعد حصتك الخصوصية القادمة</p>
-        <div class="info-card">
-          <div class="info-row"><span class="label">الحصة</span><span class="value">${sessionTitle}</span></div>
-          <div class="info-row"><span class="label">الطالب</span><span class="value">${studentName}</span></div>
-          <div class="info-row"><span class="label">التاريخ</span><span class="value">${sessionDate}</span></div>
-          <div class="info-row"><span class="label">الوقت</span><span class="value">${sessionTime}</span></div>
-        </div>
-        <div style="text-align:center; margin-top:24px;">
-          <a href="${APP_URL}/instructor/schedule" class="btn">عرض جدول الحصص</a>
-        </div>`,
-    }),
-  });
-}
-
-// ══════════════════════════════════════════════════════
-// 11. إيميل عروض وخصومات
-// ══════════════════════════════════════════════════════
-export async function sendPromoEmail({ email, name, promoTitle, promoDescription, discountPercent, couponCode, expiryDate, ctaUrl }) {
-  return sendEmail({
-    to: [{ email, name }],
-    subject: `🎁 ${promoTitle} — LoopEDX`,
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #DC2626, #EF4444)",
-      icon: "🎁",
-      title: promoTitle,
-      subtitle: promoDescription,
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 8px;">أهلاً ${name}! 🎉</h2>
-        <p style="color:#64748B; font-size:15px; margin:0 0 20px;">${promoDescription}</p>
-        ${discountPercent ? `
-        <div style="background: linear-gradient(135deg,#FEF2F2,#FEE2E2); border:2px dashed #EF4444; border-radius:12px; padding:24px; text-align:center; margin:20px 0;">
-          <div style="font-size:48px; font-weight:900; color:#DC2626;">${discountPercent}%</div>
-          <div style="color:#DC2626; font-size:16px; font-weight:700;">خصم على جميع الدورات</div>
-          ${couponCode ? `
-          <div style="margin-top:16px;">
-            <div style="color:#64748B; font-size:13px; margin-bottom:8px;">استخدم كود الخصم:</div>
-            <div style="background:#fff; border:2px solid #EF4444; border-radius:8px; padding:10px 24px; display:inline-block; font-size:20px; font-weight:900; color:#DC2626; letter-spacing:3px;">${couponCode}</div>
-          </div>` : ""}
-          ${expiryDate ? `<div style="color:#94A3B8; font-size:13px; margin-top:12px;">ينتهي العرض: ${expiryDate}</div>` : ""}
-        </div>` : ""}
-        <div style="text-align:center; margin-top:28px;">
-          <a href="${ctaUrl || APP_URL + "/courses"}" style="display:inline-block; background:linear-gradient(135deg,#DC2626,#EF4444); color:#fff !important; text-decoration:none; padding:14px 36px; border-radius:10px; font-size:15px; font-weight:700;">استفد من العرض الآن 🚀</a>
-        </div>
-        <p style="color:#94A3B8; font-size:12px; text-align:center; margin-top:20px;">لإلغاء الاشتراك في الإيميلات التسويقية، <a href="${APP_URL}/unsubscribe" style="color:#94A3B8;">اضغط هنا</a></p>`,
-    }),
-  });
-}
+export default Register
