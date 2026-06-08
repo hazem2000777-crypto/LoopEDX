@@ -4,7 +4,7 @@ const APP_URL = import.meta.env.VITE_APP_URL || "https://loop-edx-mu5f.vercel.ap
 
 async function sendEmail({ to, subject, htmlContent }) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+ const res = await fetch(`${SUPABASE_URL}/functions/v1/super-function`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

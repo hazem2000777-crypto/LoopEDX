@@ -60,7 +60,7 @@ function Register() {
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/super-function`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
