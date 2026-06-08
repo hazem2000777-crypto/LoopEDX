@@ -1,20 +1,26 @@
-// ─── Brevo Email Service ───────────────────────────────
-const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
-const SENDER_EMAIL  = import.meta.env.VITE_BREVO_SENDER_EMAIL;
-const SENDER_NAME   = import.meta.env.VITE_BREVO_SENDER_NAME || "LoopEDX";
-const API_URL       = "https://api.brevo.com/v3/smtp/email";
-const APP_URL       = import.meta.env.VITE_APP_URL || "https://loop-edx-mu5f.vercel.app";
+const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
+const APP_URL = import.meta.env.VITE_APP_URL || "https://loop-edx-mu5f.vercel.app";
+const SENDER = "onboarding@resend.dev";
+const SENDER_NAME = "LoopEDX";
 
 async function sendEmail({ to, subject, htmlContent }) {
   try {
-    const res = await fetch(API_URL, {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": BREVO_API_KEY },
-      body: JSON.stringify({ sender: { name: SENDER_NAME, email: SENDER_EMAIL }, to, subject, htmlContent }),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: `${SENDER_NAME} <${SENDER}>`,
+        to,
+        subject,
+        html: htmlContent,
+      }),
     });
-    if (!res.ok) { const err = await res.json(); console.error("Brevo error:", err); return false; }
+    if (!res.ok) { const err = await res.json(); console.error("Resend error:", err); return false; }
     return true;
-  } catch (err) { console.error("Brevo send error:", err); return false; }
+  } catch (err) { console.error("Resend send error:", err); return false; }
 }
 
 async function getAdminEmails(supabase) {
@@ -54,30 +60,10 @@ function baseTemplate({ headerBg, badge, badgeColor, icon, title, subtitle, body
 </body></html>`;
 }
 
-export async function sendVerificationEmail({ email, name, confirmUrl }) {
-  return sendEmail({
-    to: [{ email, name }],
-    subject: "أكّد بريدك الإلكتروني — LoopEDX",
-    htmlContent: baseTemplate({
-      headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
-      icon: "✉️",
-      title: "تأكيد البريد الإلكتروني",
-      subtitle: "خطوة واحدة تفصلك عن عالم المعرفة",
-      bodyContent: `
-        <h2 style="color:#0F172A; margin:0 0 12px;">أهلاً ${name}! 👋</h2>
-        <p style="color:#64748B; font-size:15px; line-height:1.7; margin:0 0 28px;">شكراً لتسجيلك في LoopEDX. اضغط على الزر أدناه لتأكيد بريدك الإلكتروني.</p>
-        <div style="text-align:center; margin:32px 0;">
-          <a href="${confirmUrl}" class="btn">تأكيد البريد الإلكتروني ✉️</a>
-        </div>
-        <p style="font-size:13px; color:#94A3B8; text-align:center;">الرابط صالح لمدة 24 ساعة.</p>`,
-    }),
-  });
-}
-
 export async function sendWelcomeEmail({ email, name, role }) {
   const isInstructor = role === "instructor";
   return sendEmail({
-    to: [{ email, name }],
+    to: [email],
     subject: `أهلاً بك في LoopEDX يا ${name}! 🎉`,
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
@@ -130,7 +116,7 @@ export async function notifyAdminsNewStudent({ supabase, studentName, studentEma
       </div>`,
   });
   for (const admin of admins) {
-    await sendEmail({ to: [{ email: admin.email, name: admin.name }], subject: `طالب جديد: ${studentName} — LoopEDX`, htmlContent: html });
+    await sendEmail({ to: [admin.email], subject: `طالب جديد: ${studentName} — LoopEDX`, htmlContent: html });
   }
 }
 
@@ -155,13 +141,13 @@ export async function notifyAdminsNewInstructor({ supabase, instructorName, inst
       </div>`,
   });
   for (const admin of admins) {
-    await sendEmail({ to: [{ email: admin.email, name: admin.name }], subject: `معلم جديد يحتاج موافقة: ${instructorName} — LoopEDX`, htmlContent: html });
+    await sendEmail({ to: [admin.email], subject: `معلم جديد يحتاج موافقة: ${instructorName} — LoopEDX`, htmlContent: html });
   }
 }
 
 export async function sendInstructorApproval({ email, name }) {
   return sendEmail({
-    to: [{ email, name }],
+    to: [email],
     subject: "🎉 تمت الموافقة على حسابك كمعلم — LoopEDX",
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #064E3B, #10B981)",
@@ -180,7 +166,7 @@ export async function sendInstructorApproval({ email, name }) {
 
 export async function sendPurchaseConfirmation({ studentEmail, studentName, courseName, courseSlug, amount, paymentMethod, orderId }) {
   return sendEmail({
-    to: [{ email: studentEmail, name: studentName }],
+    to: [studentEmail],
     subject: `تم الشراء بنجاح: ${courseName} — LoopEDX`,
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
@@ -205,7 +191,7 @@ export async function sendPurchaseConfirmation({ studentEmail, studentName, cour
 
 export async function notifyInstructorNewStudent({ instructorEmail, instructorName, studentName, courseName, enrolledAt }) {
   return sendEmail({
-    to: [{ email: instructorEmail, name: instructorName }],
+    to: [instructorEmail],
     subject: `طالب جديد في دورتك: ${courseName} — LoopEDX`,
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
@@ -251,13 +237,13 @@ export async function notifyAdminsNewPayment({ supabase, studentName, studentEma
       </div>`,
   });
   for (const admin of admins) {
-    await sendEmail({ to: [{ email: admin.email, name: admin.name }], subject: `💰 دفعة جديدة: ${amount} ريال — ${studentName}`, htmlContent: html });
+    await sendEmail({ to: [admin.email], subject: `💰 دفعة جديدة: ${amount} ريال — ${studentName}`, htmlContent: html });
   }
 }
 
 export async function sendSessionReminderStudent({ studentEmail, studentName, instructorName, sessionTitle, sessionDate, sessionTime, sessionLink }) {
   return sendEmail({
-    to: [{ email: studentEmail, name: studentName }],
+    to: [studentEmail],
     subject: `تذكير: حصتك مع ${instructorName} غداً — LoopEDX`,
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #7C3AED, #8B5CF6)",
@@ -279,7 +265,7 @@ export async function sendSessionReminderStudent({ studentEmail, studentName, in
 
 export async function sendSessionReminderInstructor({ instructorEmail, instructorName, studentName, sessionTitle, sessionDate, sessionTime }) {
   return sendEmail({
-    to: [{ email: instructorEmail, name: instructorName }],
+    to: [instructorEmail],
     subject: `تذكير: حصتك مع ${studentName} غداً — LoopEDX`,
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #7C3AED, #8B5CF6)",
@@ -303,7 +289,7 @@ export async function sendSessionReminderInstructor({ instructorEmail, instructo
 
 export async function sendPromoEmail({ email, name, promoTitle, promoDescription, discountPercent, couponCode, expiryDate, ctaUrl }) {
   return sendEmail({
-    to: [{ email, name }],
+    to: [email],
     subject: `🎁 ${promoTitle} — LoopEDX`,
     htmlContent: baseTemplate({
       headerBg: "linear-gradient(135deg, #DC2626, #EF4444)",
@@ -316,13 +302,32 @@ export async function sendPromoEmail({ email, name, promoTitle, promoDescription
         ${discountPercent ? `
         <div style="background:#FEF2F2; border:2px dashed #EF4444; border-radius:12px; padding:24px; text-align:center; margin:20px 0;">
           <div style="font-size:48px; font-weight:900; color:#DC2626;">${discountPercent}%</div>
-          <div style="color:#DC2626; font-size:16px; font-weight:700;">خصم على جميع الدورات</div>
-          ${couponCode ? `<div style="margin-top:16px; font-size:20px; font-weight:900; color:#DC2626; letter-spacing:3px;">${couponCode}</div>` : ""}
+          ${couponCode ? `<div style="font-size:20px; font-weight:900; color:#DC2626; letter-spacing:3px; margin-top:12px;">${couponCode}</div>` : ""}
           ${expiryDate ? `<div style="color:#94A3B8; font-size:13px; margin-top:12px;">ينتهي العرض: ${expiryDate}</div>` : ""}
         </div>` : ""}
         <div style="text-align:center; margin-top:28px;">
           <a href="${ctaUrl || APP_URL + "/courses"}" style="display:inline-block; background:linear-gradient(135deg,#DC2626,#EF4444); color:#fff; text-decoration:none; padding:14px 36px; border-radius:10px; font-size:15px; font-weight:700;">استفد من العرض الآن 🚀</a>
         </div>`,
+    }),
+  });
+}
+
+export async function sendVerificationEmail({ email, name, confirmUrl }) {
+  return sendEmail({
+    to: [email],
+    subject: "أكّد بريدك الإلكتروني — LoopEDX",
+    htmlContent: baseTemplate({
+      headerBg: "linear-gradient(135deg, #1E40AF, #2563EB)",
+      icon: "✉️",
+      title: "تأكيد البريد الإلكتروني",
+      subtitle: "خطوة واحدة تفصلك عن عالم المعرفة",
+      bodyContent: `
+        <h2 style="color:#0F172A; margin:0 0 12px;">أهلاً ${name}! 👋</h2>
+        <p style="color:#64748B; font-size:15px; line-height:1.7; margin:0 0 28px;">شكراً لتسجيلك في LoopEDX. اضغط على الزر أدناه لتأكيد بريدك الإلكتروني.</p>
+        <div style="text-align:center; margin:32px 0;">
+          <a href="${confirmUrl}" class="btn">تأكيد البريد الإلكتروني ✉️</a>
+        </div>
+        <p style="font-size:13px; color:#94A3B8; text-align:center;">الرابط صالح لمدة 24 ساعة.</p>`,
     }),
   });
 }
