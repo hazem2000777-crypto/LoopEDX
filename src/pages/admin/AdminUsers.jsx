@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/AuthContext";
 import AdminLayout from "./AdminLayout";
 import { Search, Trash2, Shield, User, BookOpen } from "lucide-react";
+import { sendInstructorApproval } from "../../lib/brevo";
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -20,9 +21,18 @@ export default function AdminUsers() {
     setLoading(false);
   };
 
-  const updateRole = async (id, role) => {
-    await supabase.from("profiles").update({ role }).eq("id", id);
-    setUsers(p => p.map(u => u.id === id ? { ...u, role } : u));
+  const updateRole = async (id, newRole) => {
+    const userToUpdate = users.find(u => u.id === id);
+    await supabase.from("profiles").update({ role: newRole }).eq("id", id);
+    setUsers(p => p.map(u => u.id === id ? { ...u, role: newRole } : u));
+
+    // ✅ لو الأدمن غير الدور لـ instructor → بعت إيميل موافقة
+    if (newRole === "instructor" && userToUpdate) {
+      await sendInstructorApproval({
+        email: userToUpdate.email,
+        name: userToUpdate.name || "المعلم",
+      });
+    }
   };
 
   const deleteUser = async (id) => {
